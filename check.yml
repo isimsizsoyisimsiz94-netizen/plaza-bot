@@ -1,0 +1,39 @@
+name: Plaza Eindhoven kontrol
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"    # her 5 dakikada bir (GitHub bazen geciktirebilir)
+  workflow_dispatch:          # istersen elle de calistirabilirsin
+
+permissions:
+  contents: write             # seen.json'u repoya geri kaydedebilmek icin
+
+concurrency:
+  group: plaza-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      - name: Kutuphaneleri kur
+        run: pip install requests
+
+      - name: Botu calistir
+        run: python3 plaza_bot.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MAX_RENT: ${{ vars.MAX_RENT }}   # istege bagli fiyat filtresi
+
+      - name: Gorulen ilan listesini kaydet
+        run: |
+          git config user.name "plaza-bot"
+          git config user.email "plaza-bot@users.noreply.github.com"
+          git add seen.json
+          git diff --cached --quiet || git commit -m "seen.json guncellendi"
+          git pull --rebase origin main || true
+          git push
